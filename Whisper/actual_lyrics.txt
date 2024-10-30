@@ -1,0 +1,1 @@
+This is the sound test to test if Whisper is actually working

@@ -1,11 +1,10 @@
-from transformers import AutoTokenizer, AutoModelForCausalLM
-from transformers import BitsAndBytesConfig
+from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
 import torch
 import json
-
-# maybe a clue?????
+import bitsandbytes
+from accelerate import init_empty_weights, load_checkpoint_and_dispatch
 # from unsloth import FastLanguageModel
-
+# unsloth doesn't work since unsloth need triton and triton isn't available on windows
 import torch
 from datasets import Dataset
 import time
@@ -13,24 +12,25 @@ import time
 
 tokenizer = AutoTokenizer.from_pretrained("Vikhrmodels/Vikhr-Llama3.1-8B-Instruct-R-21-09-24")
 
-# WILL THE MODEL RUN??
-model = AutoModelForCausalLM.from_pretrained(
-    "Vikhrmodels/Vikhr-Llama3.1-8B-Instruct-R-21-09-24",
-    device_map="auto"  # This will automatically map layers to the appropriate device (e.g., GPU)
-)
+quant_config = BitsAndBytesConfig(load_in_4bit=True)
+
+# Initialize an empty model with the correct configuration
+with init_empty_weights():
+    model = AutoModelForCausalLM.from_pretrained(
+        "Vikhrmodels/Vikhr-Llama3.1-8B-Instruct-R-21-09-24",
+        quantization_config=quant_config
+    )
 
 # apply this template (IS IT THE RIGHT TEMPLATE?????? PAY CLOSE ATTENTION)
-prompt = """system:
+prompt = """|start_header_id|>system<|end_header_id|>
 
-{SYSTEM}\n\nuser:
+{SYSTEM}<|eot_id|>\n\n<|start_header_id|>user<|end_header_id|>
 
-{INPUT}\n\nassistant:
+{INPUT}<|eot_id|>\n\n<|start_header_id|>assistantj<|end_header_id|>
 
 {OUTPUT}"""
 
-
 # FastLanguageModel.for_inference(model) 
-
 
 # Example of inference
 inputs = tokenizer(
@@ -79,7 +79,7 @@ while True:
 
     
     # IS THIS RIGHT???? PAY CLOSE ATTENTION.
-    text = text + f"""\n\nuser:\n\n{user_input}\n\nassistant:"""
+    text = text + f"""<|eot_id|>\n\n<|start_header_id|>user<|end_header_id|>{user_input}<|eot_id|>\n\n<|start_header_id|>assistantj<|end_header_id|>"""
     
     batch = []
 
